@@ -1,0 +1,8 @@
+is_global = true
+build_property.RootNamespace = PosDeviceApi
+build_property.ProjectDir = C:\Users\renii\OneDrive\Desktop\test\PosDeviceApi\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.CsWinRTUseWindowsUIXamlProjections = false
+build_property.EffectiveAnalysisLevelStyle = 
+build_property.EnableCodeStyleSeverity = 
