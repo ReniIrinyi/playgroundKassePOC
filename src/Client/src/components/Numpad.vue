@@ -13,7 +13,7 @@
 </template>
 
 <script lang="ts" setup>
-import {deviceApi} from 'src/services/api'
+import {api as deviceApi} from 'src/services/api'
 
 type Cat = { id: string | number; label: string; bg?: string; color?: string }
 const props = defineProps<{ categories: Cat[] }>()

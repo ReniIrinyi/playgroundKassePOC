@@ -1,25 +1,35 @@
-using KasseApp.Server.Models;
-using Microsoft.EntityFrameworkCore;
-
 namespace KasseApp.Server.Services;
 
-public class DeviceIdProvider
-{
-    private readonly AppDb _db;
+using Microsoft.Win32;
+using System.Security.Cryptography;
+using System.Text;
 
-    public DeviceIdProvider(AppDb db)
+public static class DeviceIdProvider
+{
+    public static string GetDeviceId()
     {
-        _db = db;
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Cryptography");
+            var guid = (string?)key?.GetValue("MachineGuid");
+            if (!string.IsNullOrWhiteSpace(guid))
+                return "KASSA-" + HashShort(guid);
+        }
+        catch { }
+
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "KasseApp", "device-id.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        if (File.Exists(path)) return File.ReadAllText(path).Trim();
+
+        var id = "KASSA-" + Guid.NewGuid().ToString("N").ToUpperInvariant();
+        File.WriteAllText(path, id);
+        return id;
     }
 
-    public async Task<string> GetOrCreateAsync(CancellationToken ct = default)
+    private static string HashShort(string s)
     {
-        var dev = await _db.Devices.AsNoTracking().FirstOrDefaultAsync(ct);
-        if (dev is not null) return dev.DeviceId;
-
-        var deviceId = "POS-" + Guid.NewGuid().ToString("N");
-        _db.Devices.Add(new Device { DeviceId = deviceId });
-        await _db.SaveChangesAsync(ct);
-        return deviceId;
+        var sha1 = SHA1.HashData(Encoding.UTF8.GetBytes(s));
+        return Convert.ToHexString(sha1.AsSpan(0, 8));
     }
 }

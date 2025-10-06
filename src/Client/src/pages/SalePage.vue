@@ -90,7 +90,7 @@ import {usePosStore} from 'stores/pos'
 import CategoryGrid from 'components/CategoryGrid.vue'
 import Numpad from 'components/Numpad.vue'
 import PosSummary from 'components/PosSummary.vue'
-import {deviceApi} from 'src/services/api';
+import {api as DeviceApi} from 'src/services/api';
 import {sendToCustomer} from 'src/services/customer'
 
 const store = usePosStore()

@@ -1,9 +1,17 @@
-import {configure} from 'quasar/wrappers'
+import { configure } from 'quasar/wrappers'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname  = dirname(__filename)
 
 export default configure(() => ({
   css: ['app.scss'],
   build: {
-    vueRouterMode: 'history'
+    vueRouterMode: 'history',
+    alias: {
+      '@': resolve(__dirname, 'src'),
+    },
   },
   extras: ['material-icons'],
   boot: ['pinia'],
