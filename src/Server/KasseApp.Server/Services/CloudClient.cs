@@ -86,6 +86,7 @@ public sealed class CloudAuthClient
         req.Headers.TryAddWithoutValidation("sessid", tokenId);
         req.Headers.TryAddWithoutValidation("device", deviceId);
         req.Headers.TryAddWithoutValidation("isTill", "1");
+        req.Headers.TryAddWithoutValidation("phase", "green");
 
         using var resp = await _http.SendAsync(req, ct);
         if (!resp.IsSuccessStatusCode)
