@@ -1,6 +1,4 @@
 
-
-using System.Net;
 using System.Text.Json;
 using KasseApp.Server.Services;
 using Microsoft.Extensions.FileProviders;
@@ -28,10 +26,6 @@ builder.Services.AddSingleton<EscPosService>();
 var app = builder.Build();
 app.UseCors("Dev");
 
-static object JsonDocumentToObject(JsonDocument doc)
-{
-    return JsonSerializer.Deserialize<object>(doc.RootElement.GetRawText())!;
-}
 
 var webRoot = builder.Configuration["WebRoot"]; 
 if (!string.IsNullOrWhiteSpace(webRoot) && Directory.Exists(webRoot))
@@ -94,11 +88,23 @@ app.MapPost("/api/print", ([FromServices] EscPosService esc, [FromBody] PrintDto
     return Results.Ok(new { printed = true });
 });
 
-app.MapPost("/api/drawer/open", ([FromServices] EscPosService esc) =>
+app.MapPost("/api/drawer/open", (EscPosService esc) =>
 {
-    esc.OpenDrawer();
-    return Results.Ok(new { opened = true });
+    try
+    {
+        esc.OpenDrawer();
+        return Results.Json(new { ok = true });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(
+            title: "Drawer open failed",
+            detail: ex.ToString(),
+            statusCode: 500
+        );
+    }
 });
+
 
 app.Run();
 

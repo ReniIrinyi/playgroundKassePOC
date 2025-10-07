@@ -4,15 +4,35 @@ async function request<T>(base: string, path: string, init?: RequestInit): Promi
   const res = await fetch(`${base}${path}`, {
     headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
     ...init
-  })
+  });
+
+  const ct   = res.headers.get('content-type') || '';
+  const text = await res.text();        
+  const isJson = ct.includes('application/json');
+
   if (!res.ok) {
-    let msg = `HTTP ${res.status}`
-    try { msg = (await res.text()) || msg } catch {}
-    throw new Error(msg)
+    let detail = text;
+    if (isJson && text) {
+      try {
+        const j = JSON.parse(text);
+        detail = j.detail || j.title || JSON.stringify(j);
+      } catch {  }
+    }
+    const msg = `HTTP ${res.status} ${res.statusText}\n${detail || '(no body)'}`;
+    throw new Error(msg);
   }
-  if (res.status === 204) return undefined as unknown as T
-  return res.json() as Promise<T>
+
+  if (!text || res.status === 204) {
+    return undefined as unknown as T; 
+  }
+
+  if (isJson) {
+    return JSON.parse(text) as T;
+  }
+  return text as unknown as T;
 }
+
+
 
 const get  = <T>(base: string, path: string) => request<T>(base, path)
 const post = <T>(base: string, path: string, body?: any) =>

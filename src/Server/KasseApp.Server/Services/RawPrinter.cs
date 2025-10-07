@@ -1,29 +1,66 @@
-namespace KasseApp.Server.Services;
-
+using System.ComponentModel;
 using System.Runtime.InteropServices;
-using System.Text;
+using System.Drawing.Printing;
 
 public static class RawPrinter
 {
-    [DllImport("winspool.drv", CharSet = CharSet.Auto, SetLastError = true)]
-    static extern bool OpenPrinter(string pPrinterName, out IntPtr hPrinter, IntPtr pDefault);
+    public static void Send(string? preferredPrinterName, byte[] bytes)
+    {
+        var printerName = ResolvePrinterName(preferredPrinterName);
+        SendRawToPrinter(printerName, bytes);
+    }
 
-    [DllImport("winspool.drv", SetLastError = true)]
+    private static string ResolvePrinterName(string? preferred)
+    {
+        if (!string.IsNullOrWhiteSpace(preferred) && IsInstalled(printerName: preferred!))
+            return preferred!;
+
+        var def = new PrinterSettings().PrinterName; 
+        if (!string.IsNullOrWhiteSpace(def) && IsInstalled(def))
+            return def;
+
+        throw new InvalidOperationException(
+            $"Nincs elérhető nyomtató. " +
+            $"Configban megadott: '{preferred ?? "<null>"}', " +
+            $"Windows default: '{def ?? "<null>"}'.");
+    }
+
+    private static bool IsInstalled(string printerName)
+    {
+        try
+        {
+            IntPtr hPrinter;
+            var di = new PRINTER_DEFAULTS();
+            if (OpenPrinter(printerName, out hPrinter, ref di))
+            {
+                ClosePrinter(hPrinter);
+                return true;
+            }
+        }
+        catch {  }
+        return false;
+    }
+
+    // ===== Winspool P/Invoke  =====
+    [DllImport("winspool.Drv", SetLastError = true, CharSet = CharSet.Auto)]
+    static extern bool OpenPrinter(string pPrinterName, out IntPtr phPrinter, ref PRINTER_DEFAULTS pDefault);
+
+    [DllImport("winspool.Drv", SetLastError = true)]
     static extern bool ClosePrinter(IntPtr hPrinter);
 
-    [DllImport("winspool.drv", SetLastError = true, CharSet = CharSet.Ansi)]
+    [DllImport("winspool.Drv", SetLastError = true, CharSet = CharSet.Ansi)]
     static extern bool StartDocPrinter(IntPtr hPrinter, int level, ref DOC_INFO_1 di);
 
-    [DllImport("winspool.drv", SetLastError = true)]
+    [DllImport("winspool.Drv", SetLastError = true)]
     static extern bool EndDocPrinter(IntPtr hPrinter);
 
-    [DllImport("winspool.drv", SetLastError = true)]
+    [DllImport("winspool.Drv", SetLastError = true)]
     static extern bool StartPagePrinter(IntPtr hPrinter);
 
-    [DllImport("winspool.drv", SetLastError = true)]
+    [DllImport("winspool.Drv", SetLastError = true)]
     static extern bool EndPagePrinter(IntPtr hPrinter);
 
-    [DllImport("winspool.drv", SetLastError = true)]
+    [DllImport("winspool.Drv", SetLastError = true)]
     static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, int dwCount, out int dwWritten);
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
@@ -31,35 +68,58 @@ public static class RawPrinter
     {
         [MarshalAs(UnmanagedType.LPStr)] public string pDocName;
         [MarshalAs(UnmanagedType.LPStr)] public string pOutputFile;
-        [MarshalAs(UnmanagedType.LPStr)] public string pDataType;
+        [MarshalAs(UnmanagedType.LPStr)] public string pDatatype; // "RAW"
     }
 
-    public static void Send(string printerName, byte[] bytes)
+    [StructLayout(LayoutKind.Sequential)]
+    struct PRINTER_DEFAULTS
     {
-        if (!OpenPrinter(printerName, out var h, IntPtr.Zero))
-            throw new InvalidOperationException($"OpenPrinter failed: {printerName}");
+        public IntPtr pDatatype;
+        public IntPtr pDevMode;
+        public int DesiredAccess;
+    }
+
+    private static void SendRawToPrinter(string printerName, byte[] bytes)
+    {
+        IntPtr hPrinter = IntPtr.Zero;
+        var di = new PRINTER_DEFAULTS();
+        if (!OpenPrinter(printerName, out hPrinter, ref di))
+            ThrowWin32("OpenPrinter", printerName);
 
         try
         {
-            var di = new DOC_INFO_1 { pDocName = "RAW", pDataType = "RAW", pOutputFile = null };
-            if (!StartDocPrinter(h, 1, ref di)) throw new InvalidOperationException("StartDocPrinter failed");
-            if (!StartPagePrinter(h)) throw new InvalidOperationException("StartPagePrinter failed");
+            var docInfo = new DOC_INFO_1
+            {
+                pDocName = "ESC/POS RAW",
+                pOutputFile = null,
+                pDatatype = "RAW"
+            };
 
-            var unmanagedPtr = Marshal.AllocCoTaskMem(bytes.Length);
+            if (!StartDocPrinter(hPrinter, 1, ref docInfo)) ThrowWin32("StartDocPrinter", printerName);
             try
             {
-                Marshal.Copy(bytes, 0, unmanagedPtr, bytes.Length);
-                if (!WritePrinter(h, unmanagedPtr, bytes.Length, out var written) || written != bytes.Length)
-                    throw new InvalidOperationException("WritePrinter failed");
+                if (!StartPagePrinter(hPrinter)) ThrowWin32("StartPagePrinter", printerName);
+                try
+                {
+                    var unmanagedBytes = Marshal.AllocHGlobal(bytes.Length);
+                    try
+                    {
+                        Marshal.Copy(bytes, 0, unmanagedBytes, bytes.Length);
+                        if (!WritePrinter(hPrinter, unmanagedBytes, bytes.Length, out var written) || written != bytes.Length)
+                            ThrowWin32("WritePrinter", printerName);
+                    }
+                    finally { Marshal.FreeHGlobal(unmanagedBytes); }
+                }
+                finally { EndPagePrinter(hPrinter); }
             }
-            finally { Marshal.FreeCoTaskMem(unmanagedPtr); }
-
-            EndPagePrinter(h);
-            EndDocPrinter(h);
+            finally { EndDocPrinter(hPrinter); }
         }
-        finally { ClosePrinter(h); }
+        finally { ClosePrinter(hPrinter); }
     }
 
-    public static void SendText(string printerName, string text, bool addLf = true)
-        => Send(printerName, Encoding.UTF8.GetBytes(addLf ? text + "\n" : text));
+    private static void ThrowWin32(string api, string printerName)
+    {
+        var err = new Win32Exception(Marshal.GetLastWin32Error());
+        throw new InvalidOperationException($"{api} failed for printer '{printerName}': {err.Message}");
+    }
 }

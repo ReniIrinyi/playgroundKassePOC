@@ -1,7 +1,5 @@
 namespace KasseApp.Server.Services;
 
-using Microsoft.Win32;
-using System.Security.Cryptography;
 using System.Text;
 
 public static class DeviceIdProvider

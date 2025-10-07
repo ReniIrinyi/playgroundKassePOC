@@ -90,20 +90,31 @@ import {usePosStore} from 'stores/pos'
 import CategoryGrid from 'components/CategoryGrid.vue'
 import Numpad from 'components/Numpad.vue'
 import PosSummary from 'components/PosSummary.vue'
-import {api as DeviceApi} from 'src/services/api';
+import {api} from 'src/services/api';
 import {sendToCustomer} from 'src/services/customer'
 
 const store = usePosStore()
 const search = ref('')
 
-function onBone() {
-  deviceApi.ping();
-  deviceApi.print({text: 'greenSys Kasse\nDanke!\n', cut: true, openDrawerAfter: true});
-  deviceApi.openDrawer();
-  sendToCustomer({total: store.total})
-  sendToCustomer({lastItem: {name, qty, price}})
-  sendToCustomer({message: 'Danke!'})
+async function onBone() {
+  try {
+    await api.ping();
+
+    const last = store.items.length ? store.items[store.items.length - 1] : null;
+
+    await api.print({ text: 'greenSys Kasse\nDanke!\n', cut: true, openDrawerAfter: true });
+    await api.openDrawer();
+
+    sendToCustomer({ total: store.total });
+    if (last) {
+      sendToCustomer({ lastItem: { name: last.name, qty: last.qty, price: last.price } });
+    }
+    sendToCustomer({ message: 'Danke!' });
+  } catch (err) {
+    console.error(err);
+  }
 }
+
 </script>
 
 <style scoped>

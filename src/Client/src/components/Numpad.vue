@@ -13,7 +13,7 @@
 </template>
 
 <script lang="ts" setup>
-import {api as deviceApi} from 'src/services/api'
+import {api} from 'src/services/api'
 
 type Cat = { id: string | number; label: string; bg?: string; color?: string }
 const props = defineProps<{ categories: Cat[] }>()
@@ -30,7 +30,7 @@ const btnStyle = (c: Cat) => ({
 
 const printOnSecondDisplay = async (msg: string) => {
   try {
-    await deviceApi.display(msg)
+    await api.display(msg)
   } catch (err) {
     console.error('Display error:', err)
   }
