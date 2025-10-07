@@ -1,13 +1,12 @@
 
 
+using System.Net;
 using System.Text.Json;
 using KasseApp.Server.Services;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddSingleton<EscPosService>();
-
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Dev", p => p
@@ -15,6 +14,16 @@ builder.Services.AddCors(options =>
         .AllowAnyHeader()
         .AllowAnyMethod());
 });
+
+
+builder.Services.AddSingleton<CloudAuthClient>(sp =>
+{
+    var cfg = sp.GetRequiredService<IConfiguration>();
+    return new CloudAuthClient(cfg);
+});
+
+
+builder.Services.AddSingleton<EscPosService>();
 
 var app = builder.Build();
 app.UseCors("Dev");
@@ -56,23 +65,27 @@ app.MapGet("/api/device-id", () =>
 
 
 app.MapPost("/api/login", async ([FromServices] CloudAuthClient cloud,
-    [FromBody] LoginDto dto,
-    CancellationToken ct) =>
+    [FromBody] LoginDto dto, CancellationToken ct) =>
 {
     var deviceId = DeviceIdProvider.GetDeviceId();
 
-    var (_, tokenId) = await cloud.AuthenticateAsync(ct);
+    var (sessId, shiftKey) = await cloud.GetSessionAndShiftAsync(ct); 
+    await cloud.PrimeSessionAsync(sessId, ct);          
 
-    using var doc = await cloud.LoginAsync(tokenId, deviceId, isTill: true, dto.user, dto.pass, dto.licence, ct);
+    using var doc = await cloud.LoginAsync(
+        tokenId:  sessId,
+        deviceId: deviceId,
+        shiftKey: shiftKey,
+        isTill:   true,
+        user:     dto.user,
+        passPlain:dto.pass,
+        licence:  dto.licence,
+        ct:       ct
+    );
 
-    return Results.Json(JsonDocumentToObject(doc));
+    return Results.Json(JsonSerializer.Deserialize<object>(doc.RootElement.GetRawText())!);
 });
 
-app.MapGet("/api/auth/status", async ([FromServices] CloudAuthClient cloud, CancellationToken ct) =>
-{
-    using var doc = await cloud.GreenKasseAuthAsync(ct);
-    return Results.Json(JsonDocumentToObject(doc));
-});
 
 
 app.MapPost("/api/print", ([FromServices] EscPosService esc, [FromBody] PrintDto dto) =>

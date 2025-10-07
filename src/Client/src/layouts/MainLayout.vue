@@ -114,11 +114,11 @@
     try {
       const dto: LoginDto = { user: user.value, pass: pass.value, licence: licence.value }
       const { session } = await loginKasse(dto)
-      $q.notify({ type: 'positive', message: "'you're in" })
+    //  $q.notify({ type: 'positive', message: "'you're in" })
       showLogin.value = false
     } catch (e:any) {
       error.value = e?.message ?? 'oh no'
-      $q.notify({ type: 'negative', message: error.value })
+    //  $q.notify({ type: 'negative', message: error.value })
     } finally {
       loading.value = false
     }

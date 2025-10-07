@@ -1,5 +1,4 @@
-const BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5005').replace(/\/+$/, '');
-const CLOUD_BASE = (import.meta.env.VITE_CLOUD_API_URL || 'http://localhost:4200').replace(/\/+$/, '')
+const BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5011').replace(/\/+$/, '');
 
 async function request<T>(base: string, path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${base}${path}`, {
@@ -24,13 +23,13 @@ const put  = <T>(base: string, path: string, body?: any) =>
 export type LoginDto = { user: string; pass: string; licence: string }
 
 export const api = {
-  ping:       () => get<{ ok: boolean; at: string }>(DEVICE_BASE, '/api/ping'),
-  openDrawer: () => post<{ opened: boolean }>(DEVICE_BASE, '/api/drawer/open'),
+  ping:       () => get<{ ok: boolean; at: string }>(BASE, '/api/ping'),
+  openDrawer: () => post<{ opened: boolean }>(BASE, '/api/drawer/open'),
   print: (p: { text: string; cut?: boolean; openDrawerAfter?: boolean }) =>
-    post<{ printed: boolean }>(DEVICE_BASE, '/api/printer/print', p),
-  getDeviceId: () => get<{ deviceId: string }>(APP_BASE, '/api/device-id'),
-  login:       (dto: LoginDto) => post<any>(APP_BASE, '/api/login', dto),
-  authStatus:  () => get<any>(APP_BASE, '/api/auth/status'),
+    post<{ printed: boolean }>(BASE, '/api/printer/print', p),
+  getDeviceId: () => get<{ deviceId: string }>(BASE, '/api/device-id'),
+  login:       (dto: LoginDto) => post<any>(BASE, '/api/login', dto),
+  authStatus:  () => get<any>(BASE, '/api/auth/status'),
 };
 
 export async function loginKasse(dto: LoginDto) {

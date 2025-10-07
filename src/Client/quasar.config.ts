@@ -16,7 +16,7 @@ export default configure(() => ({
   extras: ['material-icons'],
   boot: ['pinia'],
   framework: {
-    plugins: [],
+    plugins: ['Notify'],
     iconSet: 'material-icons',
   },
   pwa: {

@@ -10,16 +10,28 @@ public static class DeviceIdProvider
     {
         try
         {
-            using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Cryptography");
-            var guid = (string?)key?.GetValue("MachineGuid");
-            if (!string.IsNullOrWhiteSpace(guid))
-                return "KASSA-" + HashShort(guid);
+            if (OperatingSystem.IsWindows())
+            {
+                using var lm = Microsoft.Win32.RegistryKey.OpenBaseKey(
+                    Microsoft.Win32.RegistryHive.LocalMachine,
+                    Microsoft.Win32.RegistryView.Registry64
+                );
+                using var key = lm.OpenSubKey(@"SOFTWARE\Microsoft\Cryptography");
+                var guid = key?.GetValue("MachineGuid") as string;
+                if (!string.IsNullOrWhiteSpace(guid))
+                    return "KASSA-" + HashShort(guid);
+            }
         }
-        catch { }
+        catch
+        {
+        }
 
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            "KasseApp", "device-id.txt");
+        var path = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "KasseApp", "device-id.txt"
+        );
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
         if (File.Exists(path)) return File.ReadAllText(path).Trim();
 
         var id = "KASSA-" + Guid.NewGuid().ToString("N").ToUpperInvariant();
@@ -29,7 +41,8 @@ public static class DeviceIdProvider
 
     private static string HashShort(string s)
     {
-        var sha1 = SHA1.HashData(Encoding.UTF8.GetBytes(s));
-        return Convert.ToHexString(sha1.AsSpan(0, 8));
+        var sha1 = System.Security.Cryptography.SHA1.HashData(Encoding.UTF8.GetBytes(s));
+        return Convert.ToHexString(sha1.AsSpan(0, 8)); // 16 hex karakter
     }
+
 }
